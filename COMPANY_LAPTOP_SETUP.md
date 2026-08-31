@@ -55,14 +55,18 @@ python main.py
 ```
 
 ### 정상 실행 화면 확인:
-1. 터미널에 `[INFO] [MockSerial] Opened (Virtual LGAP Loopback on COM_MOCK)...` 출력
-2. 3~5초 주기로 `[POLL TX] 020000...` 및 `[POLL RX] 020000...` 16바이트 헥사 로그 출력
-3. 별도 터미널 또는 브라우저에서 상태 조회 확인:
-   ```powershell
-   # 에어컨 전체 상태 조회 (새 터미널 창)
-   curl http://127.0.0.1:8080/states
+1. 터미널에 `[INFO] LGAP Engine 스케줄러가 시작되었습니다.` 및 `API Server started on port 8080` 출력
+2. 1초 간격으로 실내기 번호별 패킷 송수신 로그 및 파싱된 상태가 실시간으로 출력됩니다:
+   ```text
+   2026-08-31 15:16:00 [INFO] root - [POLL TX] 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+   2026-08-31 15:16:00 [INFO] root - [POLL RX] 00 01 00 00 00 00 04 09 72 90 00 00 00 00 00 54
+   2026-08-31 15:16:00 [INFO] root - [STATE] Unit 1 -> Target: 24°C, Room: 26.0°C, Pipe: 15.0°C
    ```
-4. 종료 시: 터미널에서 `Ctrl + C` (Graceful Shutdown)
+3. 별도 터미널 또는 웹 브라우저에서 상태 조회 확인:
+   * **PowerShell**: `curl.exe http://127.0.0.1:8080/states` (또는 `Invoke-RestMethod http://127.0.0.1:8080/states`)
+   * **CMD**: `curl http://127.0.0.1:8080/states`
+   * **웹 브라우저**: 주소창에 `http://localhost:8080/states` 입력
+4. 종료 시: 데몬 터미널 창에서 `Ctrl + C` (Graceful Shutdown)
 
 ---
 

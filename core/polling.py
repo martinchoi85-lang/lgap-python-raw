@@ -47,6 +47,7 @@ class LgapEngine:
 
         with self.serial_lock:
             try:
+                logging.info(f"[POLL TX] {tx_packet.hex(' ')}")
                 self.serial_conn.write(tx_packet)
                 self.serial_conn.flush()
                 time.sleep(0.05)
@@ -59,15 +60,17 @@ class LgapEngine:
                         valid_frames = sync_stream.feed(raw_data)
                         
                         if valid_frames:
-                            return valid_frames[0]
+                            rx_frame = valid_frames[0]
+                            logging.info(f"[POLL RX] {rx_frame.hex(' ')}")
+                            return rx_frame
                             
                     time.sleep(0.01)
                     
-                logging.warning(f"트랜잭션 타임아웃. 응답 없음. (TX: {tx_packet.hex()})")
+                logging.warning(f"트랜잭션 타임아웃. 응답 없음. (TX: {tx_packet.hex(' ')})")
                 return None
                 
             except Exception as e:
-                logging.error(f"트랜잭션 도중 시리얼 오류 발생: {e} | TX: {tx_packet.hex()}")
+                logging.error(f"트랜잭션 도중 시리얼 오류 발생: {e} | TX: {tx_packet.hex(' ')}")
                 self.serial_conn.close()
                 return None
 
@@ -103,11 +106,11 @@ class LgapEngine:
                 try:
                     command = self.command_queue.get_nowait()
                     tx_packet = self._build_control_packet(command)
-                    logging.info(f"제어 명령 우선 전송 (Preempt): {command}")
+                    logging.info(f"[CONTROL TX] 제어 명령 우선 전송: {command}")
                     
                     response = self._execute_transaction(tx_packet)
                     if response:
-                        logging.info(f"제어 완료 응답 수신: {response.hex()}")
+                        logging.info(f"[CONTROL RX] 제어 완료 응답 수신: {response.hex(' ')}")
                         # 응답 성공 시 상태 갱신
                         if self.state_manager:
                             try:
@@ -128,11 +131,11 @@ class LgapEngine:
                 
                 response = self._execute_transaction(tx_packet)
                 if response:
-                    logging.debug(f"[{target_id}] 상태 폴링 응답 수신: {response.hex()}")
                     if self.state_manager:
                         try:
                             parsed = parse_packet(response)
                             self.state_manager.update_state(target_id, parsed)
+                            logging.info(f"[STATE] Unit {target_id} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C, Pipe: {parsed['pipe_temp']}°C")
                         except ValueError as e:
                             logging.error(f"폴링 응답 파싱 실패: {e}")
             
