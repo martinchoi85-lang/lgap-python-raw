@@ -1,0 +1,23 @@
+[Unit]
+Description=LGAP Aircon Control Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/lgap-daemon
+ExecStart=/usr/bin/python3 /home/pi/lgap-daemon/main.py
+Restart=always
+RestartSec=5
+
+# 환경 변수 설정 (stdout/stderr 로그 systemd journal로 수집)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lgap-daemon
+
+# 리소스 보호 (보안 샌드박싱)
+ProtectSystem=full
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
