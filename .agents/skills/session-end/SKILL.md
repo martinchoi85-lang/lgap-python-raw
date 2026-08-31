@@ -17,8 +17,8 @@ You are tasked with finalizing the current development session. Execute the foll
    - Current project status & completed tasks in this session.
    - Remaining TODO items for the next session.
    - Key architectural decisions or modified key files.
-3. **Commit Message Generation:** Generate a concise Git commit message adhering strictly to Conventional Commits.
+3. **Execute Git Commit & Push:** Directly stage all modified workspace files, create a concise Git commit adhering strictly to Conventional Commits, and push to the remote repository.
 
 ## Constraints
-- Do NOT output verbose text in chat. Perform file modifications directly.
+- Do NOT output verbose text in chat. Perform file modifications and git commits directly.
 - Ensure `ai_docs/active_state.md` is updated on the filesystem before concluding.

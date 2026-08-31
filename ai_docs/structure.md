@@ -1,11 +1,13 @@
 # 🏗️ LG Aircon Raspberry Pi PoC Project Structure
 
-**Generated:** 2026-07-15 10:25:11
+**Generated:** 2026-08-31 15:19:11
 
 ### 🌳 Folder Tree
 ```text
 lgap-python-raw/
 ├── .gitignore
+├── .python-version
+├── COMPANY_LAPTOP_SETUP.md
 ├── LGAP_Github_source_check_report-v2.md
 ├── README.md
 ├── act
@@ -22,7 +24,7 @@ lgap-python-raw/
 │   └── lgap-daemon.service
 ├── main.py
 ├── next_to_do(need to be updated).md
-├── requirements.txt
+├── setup_env.bat
 ├── temp_AI_initial_command.md
 ├── test_aircon_logic.py
 └── tests
