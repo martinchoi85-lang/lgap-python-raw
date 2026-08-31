@@ -5,22 +5,16 @@
 * **상태**: 완료. 가상 시뮬레이션 E2E 테스트 가이드(`tests/README_test.md`), systemd 서비스 설정 파일(`deployment/lgap-daemon.service`), 프로덕션 실장 전환 체크리스트(`deployment/README_production.md`) 생성 완료.
 
 ## 2. 완료된 작업 (Completed Tasks)
-* **통합 시뮬레이션 테스트 가이드 작성 (`tests/README_test.md`)**:
-  * 데몬 구동 검증 (순차 폴링 및 로그 형식 정의)
-  * GET /states API 상태 조회 검증 (HTTP 200/404 및 JSON 규격 정의)
-  * POST /control 제어 명령 주입 및 Preemption 피드백 루프(API 수신 → 큐 적재 → 엔진 가로채기 → MockSerial 갱신 → 응답 수신) 관측 가이드 수립
-  * Graceful Shutdown 종료 시퀀스 검증 및 체크리스트 정리
-* **systemd 서비스 등록 파일 생성 (`deployment/lgap-daemon.service`)**:
-  * `Description`, `After`, `WorkingDirectory`, `ExecStart` 지정
-  * 데몬 크래시 대비 자동 재시작(`Restart=always`, `RestartSec=5`) 설정
-  * systemd journal 로그 수집 설정 및 `ProtectSystem=full` 보안 샌드박싱 추가
-* **프로덕션 실장 전환 체크리스트 작성 (`deployment/README_production.md`)**:
-  * `main.py` 내 `use_mock=False` 스위칭 가이드 및 `config.py` 시리얼 포트 경로 매핑 지침
-  * `/dev/ttyUSB0` 장치 권한 에러 해결을 위한 `dialout` 그룹 권한 부여 명령어 명시
-  * systemd 등록/제어(enable, start, status, restart) 절차 정리
-  * `journalctl -u lgap-daemon -f` 실시간 포트 디버깅 및 바이트 필드 의미/체크섬 오류 해결 가이드 수립
+* **회사 노트북 환경 지원 및 자동화 스크립트 작성**:
+  * 원클릭 가상환경 생성 및 패키지 설치 배치 스크립트([setup_env.bat](file:///c:/Users/MartinChoi/Documents/WorkSpace/lgap-python-raw/setup_env.bat)) 작성
+  * 회사 노트북용 초기 설정/테스트/Git 동기화 가이드([COMPANY_LAPTOP_SETUP.md](file:///c:/Users/MartinChoi/Documents/WorkSpace/lgap-python-raw/COMPANY_LAPTOP_SETUP.md)) 작성
+* **현장 하드웨어 결선 및 테스트 매뉴얼 전면 개정 ([next_to_do(need to be updated).md](file:///c:/Users/MartinChoi/Documents/WorkSpace/lgap-python-raw/next_to_do%28need%20to%20be%20updated%29.md))**:
+  * 과거 ESP32/MQTT 구조 내용 폐기 및 USB-to-RS485 유선 직결 구조 반영
+  * 하드웨어/통신 초보자를 위한 쉬운 개념 설명 및 회사 노트북 기반 단계별 현장 절차 수립
+* **GitHub 원격 저장소 동기화 완료**:
+  * `https://github.com/martinchoi85-lang/lgap-python-raw.git` main 브랜치 Push 완료
 
 ## 3. 다음 단계 작업 (Next To-Do / Pending)
-* **실기기 현장 물리 결선**: USB-to-RS485 컨버터를 통한 에어컨 실외기 CENA/CENB 단자 배선 완료
-* **포트 권한 설정 및 데몬 가동**: 라즈베리파이에 dialout 그룹 할당 후 `lgap-daemon.service` 구동 및 동작 확인
-* **실물 패킷 정합성 검증**: 실제 운전 중 발생하는 패킷 및 체크섬 오류 모니터링을 통한 디코딩 안정화
+* **회사 노트북 Git Clone 및 가상환경 세팅**: `setup_env.bat` 실행을 통한 가상환경 구축
+* **현장 USB-to-RS485 물리 결선**: 실외기 `CENA`/`CENB` 단자에 2가닥 배선 및 노트북 USB 연결
+* **실물 패킷 정합성 검증**: `main.py` (`use_mock=False`) 실행 후 실제 16바이트 패킷 응답 확인 및 로그 모니터링
