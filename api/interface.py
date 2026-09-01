@@ -7,6 +7,7 @@ import queue
 
 from core.state import StateManager
 from core.polling import LgapEngine
+from api.ui import render_dashboard_html
 
 def create_handler(state_manager: StateManager, engine: LgapEngine) -> typing.Type[BaseHTTPRequestHandler]:
     class ApiHandler(BaseHTTPRequestHandler):
@@ -17,7 +18,14 @@ def create_handler(state_manager: StateManager, engine: LgapEngine) -> typing.Ty
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
         def do_GET(self) -> None:
-            if self.path == '/states':
+            if self.path in ('/', '/index.html'):
+                html_content = render_dashboard_html().encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(html_content)))
+                self.end_headers()
+                self.wfile.write(html_content)
+            elif self.path == '/states':
                 states = state_manager.get_all_states()
                 response_data = {
                     k: {

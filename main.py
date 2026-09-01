@@ -62,7 +62,10 @@ class DaemonController:
         logger.info("LGAP Daemon 종료 완료.")
 
 if __name__ == "__main__":
-    controller = DaemonController(use_mock=True) # 실 환경 배포 시 False 로 전환
+    ##################################
+    ### 실 환경 배포 시 False 로 전환 ###
+    ##################################
+    controller = DaemonController(use_mock=True) 
     
     # 시그널 핸들러 등록 (Graceful Shutdown)
     signal.signal(signal.SIGINT, controller.request_shutdown)
