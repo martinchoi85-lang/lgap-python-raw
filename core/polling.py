@@ -6,7 +6,13 @@ import logging
 import typing
 
 import config
-from core.protocol import FrameSyncStream, PACKET_SIZE, parse_packet
+from core.protocol import (
+    FrameSyncStream,
+    PACKET_SIZE,
+    parse_packet,
+    build_poll_packet,
+    build_control_packet
+)
 from core.state import StateManager
 
 class LgapEngine:
@@ -47,7 +53,7 @@ class LgapEngine:
 
         with self.serial_lock:
             try:
-                logging.info(f"[POLL TX] {tx_packet.hex(' ')}")
+                logging.info(f"[TX] {tx_packet.hex(' ')}")
                 self.serial_conn.write(tx_packet)
                 self.serial_conn.flush()
                 time.sleep(0.05)
@@ -61,7 +67,7 @@ class LgapEngine:
                         
                         if valid_frames:
                             rx_frame = valid_frames[0]
-                            logging.info(f"[POLL RX] {rx_frame.hex(' ')}")
+                            logging.info(f"[RX] {rx_frame.hex(' ')}")
                             return rx_frame
                             
                     time.sleep(0.01)
@@ -86,14 +92,6 @@ class LgapEngine:
             self.serial_conn.close()
         logging.info("LGAP Engine 스케줄러가 중지되었습니다.")
 
-    def _build_poll_packet(self, unit_id: int) -> bytes:
-        return bytes([0x00, unit_id] + [0x00] * 14)
-
-    def _build_control_packet(self, command: typing.Dict[str, typing.Any]) -> bytes:
-        unit_id = command.get("id", 0)
-        target_temp = command.get("target_temp", 24)
-        return bytes([0x00, unit_id, 0xFF, 0x00, 0x00, 0x00, 0x00, (target_temp - 15) & 0x0F] + [0x00] * 8)
-
     def _engine_loop(self) -> None:
         while self._running:
             if not self.serial_conn or not self.serial_conn.is_open:
@@ -105,13 +103,12 @@ class LgapEngine:
             if not self.command_queue.empty():
                 try:
                     command = self.command_queue.get_nowait()
-                    tx_packet = self._build_control_packet(command)
-                    logging.info(f"[CONTROL TX] 제어 명령 우선 전송: {command}")
+                    tx_packet = build_control_packet(command)
+                    logging.info(f"[CONTROL TX] 제어 명령 우선 전송: {command} (Hex: {tx_packet.hex(' ')})")
                     
                     response = self._execute_transaction(tx_packet)
                     if response:
                         logging.info(f"[CONTROL RX] 제어 완료 응답 수신: {response.hex(' ')}")
-                        # 응답 성공 시 상태 갱신
                         if self.state_manager:
                             try:
                                 parsed = parse_packet(response)
@@ -126,7 +123,7 @@ class LgapEngine:
                     continue
                     
                 target_id = config.TARGET_INDOOR_UNITS[self._poll_index]
-                tx_packet = self._build_poll_packet(target_id)
+                tx_packet = build_poll_packet(target_id)
                 self._poll_index = (self._poll_index + 1) % len(config.TARGET_INDOOR_UNITS)
                 
                 response = self._execute_transaction(tx_packet)
@@ -140,3 +137,4 @@ class LgapEngine:
                             logging.error(f"폴링 응답 파싱 실패: {e}")
             
             time.sleep(config.POLL_INTERVAL)
+

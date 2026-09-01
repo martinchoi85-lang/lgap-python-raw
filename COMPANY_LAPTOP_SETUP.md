@@ -85,10 +85,10 @@ python main.py
    # Windows COM 포트 번호로 변경
    SERIAL_PORT = "COM3"  # 장치 관리자에서 확인한 포트 번호
    ```
-2. **`main.py`** 파일 열기 (하단 `run_daemon()` 호출부):
+2. **`main.py`** 파일 열기 (하단 `controller` 인스턴스화 부분):
    ```python
    # use_mock을 False로 변경하여 실제 시리얼 포트 열기
-   daemon = LGAPDaemon(use_mock=False)
+   controller = DaemonController(use_mock=False)
    ```
 
 ### 4.3 실기기 데몬 실행

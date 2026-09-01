@@ -117,3 +117,36 @@ class FrameSyncStream:
                 break
                 
         return valid_frames
+
+def build_poll_packet(unit_id: int) -> bytes:
+    """
+    실내기 상태 조회를 위한 16바이트 폴링 패킷을 생성하고 체크섬을 계산합니다.
+    """
+    packet = bytearray(PACKET_SIZE)
+    packet[0] = 0x00
+    packet[1] = unit_id & 0xFF
+    packet[15] = calculate_checksum(packet)
+    return bytes(packet)
+
+def build_control_packet(command: typing.Dict[str, typing.Any]) -> bytes:
+    """
+    실내기 제어를 위한 16바이트 패킷을 생성하고 체크섬을 계산합니다.
+    """
+    unit_id = command.get("id", 0)
+    target_temp = command.get("target_temp", 24)
+    clamped_temp = max(16, min(30, int(target_temp)))
+    
+    packet = bytearray(PACKET_SIZE)
+    packet[0] = 0x00
+    packet[1] = unit_id & 0xFF
+    packet[2] = 0xFF  # 제어 실행 플래그
+    packet[7] = (clamped_temp - 15) & 0x0F
+    
+    if "mode" in command and isinstance(command["mode"], int):
+        packet[5] = command["mode"] & 0xFF
+    if "fan_speed" in command and isinstance(command["fan_speed"], int):
+        packet[6] = command["fan_speed"] & 0xFF
+        
+    packet[15] = calculate_checksum(packet)
+    return bytes(packet)
+

@@ -1,5 +1,6 @@
 import typing
 import queue
+from core.protocol import validate_packet
 
 class MockSerial:
     """실제 하드웨어 없이 시리얼 포트를 흉내내는 가상 에어컨 시뮬레이터"""
@@ -32,12 +33,11 @@ class MockSerial:
         if not self.is_open:
             raise Exception("Port is closed")
             
-        if len(data) >= 2:
+        if len(data) == 16 and validate_packet(data):
             unit_id = data[1]
             if unit_id in self.mock_states:
                 # 제어 명령 수신 시 가상 상태 갱신 (간이 시뮬레이션)
-                # 데이터 7번째 바이트에 타겟 온도가 있다고 가정하고 업데이트
-                if len(data) >= 16 and data[2] == 0xFF: 
+                if data[2] == 0xFF: 
                     target_temp_raw = data[7] & 0x0F
                     self.mock_states[unit_id]["target"] = target_temp_raw + 15
                     
