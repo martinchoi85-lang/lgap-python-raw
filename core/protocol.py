@@ -181,9 +181,12 @@ class VNetProtocol:
     @staticmethod
     def parse_frame(packet: bytes) -> typing.Dict[str, typing.Any]:
         """
-        V-Net 36바이트 응답 프레임 (0x41 헤더)을 역직렬화하여 상태 데이터를 추출합니다.
-        예: 41 E0 EF 0F 00 00 01 8A 00 80 21 00 00 06 68 06 ...
+        V-Net 및 16B 하이브리드 응답 프레임을 역직렬화하여 상태 데이터를 추출합니다.
         """
+        # 16바이트 표준 LGAP 패킷인 경우 전용 파서로 위임
+        if len(packet) == PACKET_SIZE and validate_packet(packet):
+            return parse_packet(packet)
+
         if len(packet) < 12:
             raise ValueError(f"V-Net 패킷 길이가 너무 짧습니다: {len(packet)}B")
             
@@ -230,7 +233,7 @@ class FrameSyncStream:
     스트림에서 바이트 밀림 현상 방지를 위한 슬라이딩 윈도우 기반 동기화 버퍼.
     LGAP(16바이트 고정) 및 V-Net(0xC1, 0x41, 0xE1 가변 프레임)을 동적으로 분리합니다.
     """
-    def __init__(self, header_pattern: typing.Union[bytes, typing.Tuple[int, ...]] = (0x00, 0xC1, 0x41, 0xE1, 0xC0)):
+    def __init__(self, header_pattern: typing.Union[bytes, typing.Tuple[int, ...]] = (0x00, 0x10, 0xC1, 0x41, 0xE1, 0xC0)):
         if isinstance(header_pattern, bytes):
             self.header_patterns = tuple(header_pattern)
         else:
@@ -284,8 +287,8 @@ class FrameSyncStream:
                 else:
                     break
                     
-            # 3. LGAP 패킷 (0x00 시작 - 8바이트 또는 16바이트)
-            elif header == 0x00:
+            # 3. LGAP 패킷 (0x00 또는 0x10 시작 - 8바이트 또는 16바이트)
+            elif header in (0x00, 0x10):
                 # 8바이트 단문 체크섬 검사 (sum[:7] ^ 0x55 == byte[7])
                 if len(self.buffer) >= 8:
                     candidate_8 = bytes(self.buffer[:8])
