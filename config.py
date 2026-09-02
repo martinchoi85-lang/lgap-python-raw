@@ -7,13 +7,19 @@ USE_MOCK: bool = False
 SERIAL_PORT: str = "COM6"
 
 # 통신 보레이트 (LG V-Net: 9600 bps, 구형 LGAP: 4800 bps)
-BAUDRATE: int = 9600
+BAUDRATE: int = 4800
 
 # 프로토콜 동작 모드 ("VNET" | "LGAP" | "AUTO_SNIFF")
-PROTOCOL_MODE: str = "VNET"
+PROTOCOL_MODE: str = "LGAP"
 
 # 상태 조회용 기본 폴링 TX 패킷 (8바이트 단문)
-POLL_TX_HEX: str = "00 00 A0 00 00 00 08 FD"
+# POLL_TX_HEX: str = "00 00 A0 00 00 00 08 FD" # 리드 ok
+# POLL_TX_HEX: str = "10 00 A0 00 00 00 08 ED" # 틀린거 
+# POLL_TX_HEX: str = "00 00 A0 00 03 00 07 FF" # 거실 냉방 22
+# POLL_TX_HEX: str = "00 00 A0 00 03 00 0A F8" # 거실 냉방 25
+POLL_TX_HEX: str = "00 00 A0 02 00 00 08 FF" # 침실 조회
+# POLL_TX_HEX: str = "00 00 A0 02 03 00 0A FA" # 침실 냉방 25
+
 
 # V-Net 마스터(중앙제어기) 고유 주소 (기본값: 0x00)
 VNET_CENTRAL_ADDR: int = 0x00

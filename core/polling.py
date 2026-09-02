@@ -147,7 +147,11 @@ class LgapEngine:
                     continue
 
                 # [검증된 8바이트 폴링 패킷: 00 00 A0 00 00 00 08 FD]
-                poll_hex = getattr(config, 'POLL_TX_HEX', '00 00 A0 00 00 00 08 FD')
+                # print("adsdasd")
+                poll_hex = getattr(config, 'POLL_TX_HEX', '10 00 A0 00 00 00 08 ED') # 조회
+                # poll_hex = getattr(config, 'POLL_TX_HEX', '10 00 A0 00 03 00 07 EF') # 제어 거실 냉방 22
+                # poll_hex = getattr(config, 'POLL_TX_HEX', '10 00 A0 00 03 00 07 EF')
+
                 tx_packet = bytes.fromhex(poll_hex)
                 
                 response = self._execute_transaction(tx_packet)
