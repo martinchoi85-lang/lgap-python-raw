@@ -60,7 +60,9 @@ def parse_packet(packet: bytes) -> typing.Dict[str, typing.Any]:
     mode_raw = packet[5] & 0xFF
     fan_raw = packet[6] & 0xFF
     
+    unit_id = packet[1] & 0xFF
     return {
+        "unit_id": unit_id,
         "target_temp": target_temp,
         "room_temp": room_temp,
         "pipe_temp": pipe_temp,
@@ -90,13 +92,14 @@ def build_control_packet(command: typing.Dict[str, typing.Any]) -> bytes:
     packet[0] = 0x00
     packet[1] = unit_id & 0xFF
     packet[2] = 0xFF  # 제어 실행 플래그
-    packet[7] = (clamped_temp - 15) & 0x0F
     
     if "mode" in command and isinstance(command["mode"], int):
         packet[5] = command["mode"] & 0xFF
     if "fan_speed" in command and isinstance(command["fan_speed"], int):
         packet[6] = command["fan_speed"] & 0xFF
         
+    # 상위 니블 0x40(운전 가동 비트) + 하위 니블 희망온도
+    packet[7] = (0x40 | ((clamped_temp - 15) & 0x0F)) & 0xFF
     packet[15] = calculate_checksum(packet)
     return bytes(packet)
 

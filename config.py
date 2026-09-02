@@ -10,16 +10,19 @@ SERIAL_PORT: str = "COM6"
 BAUDRATE: int = 9600
 
 # 프로토콜 동작 모드 ("VNET" | "LGAP" | "AUTO_SNIFF")
-PROTOCOL_MODE: str = "LGAP"
+PROTOCOL_MODE: str = "VNET"
+
+# 상태 조회용 기본 폴링 TX 패킷 (8바이트 단문)
+POLL_TX_HEX: str = "00 00 A0 00 00 00 08 FD"
 
 # V-Net 마스터(중앙제어기) 고유 주소 (기본값: 0x00)
 VNET_CENTRAL_ADDR: int = 0x00
 
-# V-Net 모니터링 및 제어 대상 실내기 주소 리스트 (예: 4번, 5번 실내기)
-VNET_TARGET_UNITS: typing.List[int] = [4, 5]
+# V-Net 모니터링 및 제어 대상 실내기 주소 리스트 (1~5번)
+VNET_TARGET_UNITS: typing.List[int] = [1, 2, 3, 4, 5]
 
 # 구형 LGAP 모니터링 대상 실내기 리스트 (PROTOCOL_MODE == 'LGAP' 시 사용)
-TARGET_INDOOR_UNITS: typing.List[int] = [1, 2, 3, 4]
+TARGET_INDOOR_UNITS: typing.List[int] = [1, 2, 3, 4, 5]
 
 # 실내기 장치별 순차 폴링 간격 (초 단위)
 POLL_INTERVAL: float = 1.0

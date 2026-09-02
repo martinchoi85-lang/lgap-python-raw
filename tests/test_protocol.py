@@ -36,7 +36,7 @@ class TestLgapProtocol(unittest.TestCase):
             self.assertEqual(packet[0], 0x00)
             self.assertEqual(packet[1], cmd["id"])
             self.assertEqual(packet[2], 0xFF)
-            self.assertEqual(packet[7], (cmd["target_temp"] - 15) & 0x0F)
+            self.assertEqual(packet[7] & 0x0F, (cmd["target_temp"] - 15) & 0x0F)
 
     def test_mock_serial_integration(self) -> None:
         state_mgr = StateManager()

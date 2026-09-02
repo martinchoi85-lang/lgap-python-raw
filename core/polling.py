@@ -119,15 +119,7 @@ class LgapEngine:
             if not self.command_queue.empty():
                 try:
                     command = self.command_queue.get_nowait()
-                    if mode == "VNET":
-                        tx_packet = VNetProtocol.build_control_frame(
-                            command=command,
-                            central_addr=getattr(config, 'VNET_CENTRAL_ADDR', 0x00),
-                            seq=self._vnet_seq
-                        )
-                        self._vnet_seq = (self._vnet_seq + 1) & 0xFF
-                    else:
-                        tx_packet = build_control_packet(command)
+                    tx_packet = build_control_packet(command)
 
                     logging.info(f"[CONTROL TX] 제어 명령 전송: {command} (Hex: {tx_packet.hex(' ')})")
                     response = self._execute_transaction(tx_packet)
@@ -135,8 +127,9 @@ class LgapEngine:
                         logging.info(f"[CONTROL RX] 제어 완료 응답: {response.hex(' ')}")
                         if self.state_manager:
                             try:
-                                parsed = VNetProtocol.parse_frame(response) if mode == "VNET" else parse_packet(response)
-                                self.state_manager.update_state(command.get("id", 0), parsed)
+                                parsed = parse_packet(response) if (len(response) == PACKET_SIZE and validate_packet(response)) else VNetProtocol.parse_frame(response)
+                                target_id = parsed.get("unit_id", command.get("id", 0))
+                                self.state_manager.update_state(target_id, parsed)
                             except Exception as e:
                                 logging.error(f"제어 응답 파싱 실패: {e}")
                 except queue.Empty:
@@ -153,53 +146,18 @@ class LgapEngine:
                     time.sleep(0.1)
                     continue
 
-                elif mode == "VNET":
-                    target_units = getattr(config, 'VNET_TARGET_UNITS', [4, 5])
-                    if not target_units:
-                        time.sleep(config.POLL_INTERVAL)
-                        continue
-                        
-                    target_id = target_units[self._poll_index % len(target_units)]
-                    self._poll_index = (self._poll_index + 1) % len(target_units)
-                    
-                    # [사용자 요청 8바이트 패킷 테스트: 00 00 A0 00 00 00 08 FD]
-                    # tx_packet = bytes.fromhex("80 00 A0 00 00 00 08 7D")
-                    tx_packet = bytes.fromhex("00 00 A0 00 00 00 08 FD")
-                    
-                    # [기존 V-Net 23바이트 폴링 생성 로직 - 주석 보존]
-                    # tx_packet = VNetProtocol.build_poll_frame(
-                    #     unit_id=target_id,
-                    #     central_addr=getattr(config, 'VNET_CENTRAL_ADDR', 0x00),
-                    #     seq=self._vnet_seq
-                    # )
-                    # self._vnet_seq = (self._vnet_seq + 1) & 0xFF
-                    
-                    response = self._execute_transaction(tx_packet)
-                    if response and self.state_manager:
-                        try:
-                            parsed = VNetProtocol.parse_frame(response)
-                            self.state_manager.update_state(target_id, parsed)
-                            logging.info(f"[V-Net STATE] Unit #{target_id} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C, Mode: {parsed['mode']}")
-                        except Exception as e:
-                            logging.debug(f"응답 데이터 파싱 실패: {e}")
-
-                else: # 구형 LGAP 모드 (16바이트)
-                    target_units = getattr(config, 'TARGET_INDOOR_UNITS', [1, 2, 3, 4])
-                    if not target_units:
-                        time.sleep(config.POLL_INTERVAL)
-                        continue
-                        
-                    target_id = target_units[self._poll_index % len(target_units)]
-                    self._poll_index = (self._poll_index + 1) % len(target_units)
-                    
-                    tx_packet = build_poll_packet(target_id, header=getattr(config, 'POLL_HEADER', 0x00))
-                    response = self._execute_transaction(tx_packet)
-                    if response and self.state_manager:
-                        try:
-                            parsed = parse_packet(response)
-                            self.state_manager.update_state(target_id, parsed)
-                            logging.info(f"[LGAP STATE] Unit #{target_id} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C")
-                        except Exception as e:
-                            logging.debug(f"LGAP 응답 파싱 실패: {e}")
+                # [검증된 8바이트 폴링 패킷: 00 00 A0 00 00 00 08 FD]
+                poll_hex = getattr(config, 'POLL_TX_HEX', '00 00 A0 00 00 00 08 FD')
+                tx_packet = bytes.fromhex(poll_hex)
+                
+                response = self._execute_transaction(tx_packet)
+                if response and self.state_manager:
+                    try:
+                        parsed = VNetProtocol.parse_frame(response)
+                        actual_unit = parsed.get("unit_id", 3)
+                        self.state_manager.update_state(actual_unit, parsed)
+                        logging.info(f"[STATE] Unit #{actual_unit} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C, Pipe: {parsed['pipe_temp']}°C, Mode: {parsed['mode']}")
+                    except Exception as e:
+                        logging.debug(f"응답 데이터 파싱 실패: {e}")
             
             time.sleep(config.POLL_INTERVAL)
