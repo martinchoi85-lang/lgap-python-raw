@@ -128,32 +128,23 @@ class LgapEngine:
                 except queue.Empty:
                     pass
             else:
-                if not config.TARGET_INDOOR_UNITS:
-                    time.sleep(config.POLL_INTERVAL)
-                    continue
-                    
-                target_id = config.TARGET_INDOOR_UNITS[self._poll_index]
+                # [현장 실측 스니퍼 패킷 순차 테스트 풀]
+                field_packets = [
+                    ("[0/5] 마스터 초기화 브로드캐스트", bytes.fromhex("C1 00 00 00 00 A0 01 C8 04 04 A6 E0 05 05 E6 E8 88 48 44 05 05 84 80 80 E8 05 A6 80 8A 0D")),
+                    ("[1/5] 4번 실내기 폴링 (Seq 68)", bytes.fromhex("C1 00 00 04 00 00 01 68 00 00 02 03 01 01 01 01 02 02 06 02 2C 4A FE")),
+                    ("[2/5] 5번 실내기 폴링 (Seq 6A)", bytes.fromhex("C1 00 00 05 00 00 01 6A 00 00 02 03 01 01 01 01 02 02 06 02 8E 8B F1")),
+                    ("[3/5] 전체 어나운스 리프레시", bytes.fromhex("C1 00 00 00 00 80 01 ED 04 04 A7 E0 05 05 E6 E8 88 48 04 A2 A9 80 24 04 04 A7 E8 05 E0 8D F6")),
+                    ("[4/5] 4번 실내기 폴링 (Seq 69)", bytes.fromhex("C1 00 00 04 00 00 01 69 00 00 02 03 01 01 01 01 02 02 06 02 00 CB FB")),
+                    ("[5/5] 5번 실내기 폴링 (Seq 6A-2)", bytes.fromhex("C1 00 00 05 00 00 01 6A 00 00 02 03 01 01 01 01 02 02 06 02 00 28 FA")),
+                ]
+
+                pkt_desc, tx_packet = field_packets[self._poll_index % len(field_packets)]
+                self._poll_index = (self._poll_index + 1) % len(field_packets)
                 
-                # [기존 16바이트 패킷 생성 로직 - 주석 보존]
-                # tx_packet = build_poll_packet(target_id, header=getattr(config, 'POLL_HEADER', 0x00))
-                
-                # [현장 실측 수집된 23바이트 실제 TX 폴링 패킷 (Unit #4 대상)]
-                # 원본 로그 Rx:102 - C1 00 00 04 00 00 01 68 00 00 02 03 01 01 01 01 02 02 06 02 2C 4A FE
-                tx_packet = bytes.fromhex("C1 00 00 04 00 00 01 68 00 00 02 03 01 01 01 01 02 02 06 02 2C 4A FE")
-                
-                self._poll_index = (self._poll_index + 1) % len(config.TARGET_INDOOR_UNITS)
-                
+                logging.info(f"==> {pkt_desc} 송신 시작...")
                 response = self._execute_transaction(tx_packet)
                 if response:
-                    logging.info(f"[POLL RESPONSE] 실외기/실내기 회신 데이터 획득: {response.hex(' ')}")
-                    # [기존 16바이트 파싱 로직 - 주석 보존]
-                    # if self.state_manager:
-                    #     try:
-                    #         parsed = parse_packet(response)
-                    #         self.state_manager.update_state(target_id, parsed)
-                    #         logging.info(f"[STATE] Unit {target_id} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C, Pipe: {parsed['pipe_temp']}°C")
-                    #     except ValueError as e:
-                    #         logging.error(f"폴링 응답 파싱 실패: {e}")
+                    logging.info(f"[SUCCESS] {pkt_desc} 응답 수신 성공! (총 {len(response)}바이트): {response.hex(' ')}")
             
             time.sleep(config.POLL_INTERVAL)
 
