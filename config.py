@@ -7,7 +7,7 @@ SERIAL_PORT: str = "COM6"
 BAUDRATE: int = 9600
 
 # 프로토콜 동작 모드 ("VNET" | "LGAP" | "AUTO_SNIFF")
-PROTOCOL_MODE: str = "VNET"
+PROTOCOL_MODE: str = "LGAP"
 
 # V-Net 마스터(중앙제어기) 고유 주소 (기본값: 0x00)
 VNET_CENTRAL_ADDR: int = 0x00

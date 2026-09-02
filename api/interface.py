@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 import queue
 
+import config
 from core.state import StateManager
 from core.polling import LgapEngine
 from api.ui import render_dashboard_html
@@ -25,6 +26,17 @@ def create_handler(state_manager: StateManager, engine: LgapEngine) -> typing.Ty
                 self.send_header('Content-Length', str(len(html_content)))
                 self.end_headers()
                 self.wfile.write(html_content)
+            elif self.path == '/info':
+                mode = getattr(config, 'PROTOCOL_MODE', 'LGAP')
+                target_units = getattr(config, 'TARGET_INDOOR_UNITS', [1, 2, 3, 4]) if mode == 'LGAP' else getattr(config, 'VNET_TARGET_UNITS', [4, 5])
+                info_data = {
+                    "protocol_mode": mode,
+                    "baudrate": getattr(config, 'BAUDRATE', 9600),
+                    "port": getattr(config, 'SERIAL_PORT', 'COM6'),
+                    "poll_interval": getattr(config, 'POLL_INTERVAL', 1.0),
+                    "target_units": target_units
+                }
+                self._send_response(200, info_data)
             elif self.path == '/states':
                 states = state_manager.get_all_states()
                 response_data = {
@@ -68,6 +80,16 @@ def create_handler(state_manager: StateManager, engine: LgapEngine) -> typing.Ty
                     self._send_response(400, {"error": "target_temp must be between 16 and 30"})
                     return
                     
+                mode_val = command.get("mode")
+                if mode_val is not None and not isinstance(mode_val, int):
+                    self._send_response(400, {"error": "mode must be an integer"})
+                    return
+                    
+                fan_val = command.get("fan_speed")
+                if fan_val is not None and not isinstance(fan_val, int):
+                    self._send_response(400, {"error": "fan_speed must be an integer"})
+                    return
+
                 # 큐에 명령 주입 (Preemption 유도)
                 try:
                     engine.command_queue.put_nowait(command)

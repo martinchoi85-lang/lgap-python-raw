@@ -1,29 +1,33 @@
 """
-LGAP Web UI Module
+LGAP & V-Net Web UI Module
 독립적인 단일 페이지 HTML/CSS/JS 템플릿을 제공하여 백엔드 통신 로직과 완전히 분리된 프론트엔드 계층입니다.
 외부 CDN이나 라이브러리 없이 순수 바닐라 환경(오프라인 현장)에서 100% 동작합니다.
 """
 
 def render_dashboard_html() -> str:
     """
-    실시간 모니터링 및 실내기 제어가 가능한 웹 대시보드 HTML 문자열을 반환합니다.
+    실시간 모니터링 및 실내기 통합 제어(온도/모드/풍량)가 가능한 웹 대시보드 HTML 문자열을 반환합니다.
     """
     return """<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LGAP 시스템 에어컨 관제 대시보드</title>
+    <title>LG 시스템 에어컨 관제 대시보드</title>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --card-border: #334155;
+            --bg-color: #0b0f19;
+            --card-bg: #151d2f;
+            --card-hover: #1c263d;
+            --card-border: #23304c;
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
+            --text-muted: #64748b;
             --accent-color: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.2);
             --accent-hover: #0284c7;
             --success-color: #22c55e;
+            --warning-color: #f59e0b;
             --danger-color: #ef4444;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
@@ -43,25 +47,54 @@ def render_dashboard_html() -> str:
         }
 
         .header {
+            max-width: 1280px;
+            margin: 0 auto 28px auto;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--card-border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            max-width: 1200px;
-            margin: 0 auto 32px auto;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--card-border);
+            flex-wrap: wrap;
+            gap: 16px;
         }
 
-        .header-title h1 {
-            font-size: 1.5rem;
+        .header-left h1 {
+            font-size: 1.6rem;
             font-weight: 700;
+            letter-spacing: -0.02em;
             color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .header-title p {
+        .header-left p {
             font-size: 0.875rem;
             color: var(--text-secondary);
             margin-top: 4px;
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .meta-tag {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--card-border);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+        }
+
+        .meta-tag.highlight {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            background: rgba(56, 189, 248, 0.1);
         }
 
         .status-badge {
@@ -70,8 +103,8 @@ def render_dashboard_html() -> str:
             gap: 8px;
             background: rgba(34, 197, 94, 0.1);
             color: var(--success-color);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-            padding: 6px 12px;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            padding: 6px 14px;
             border-radius: 9999px;
             font-size: 0.8125rem;
             font-weight: 600;
@@ -87,139 +120,198 @@ def render_dashboard_html() -> str:
 
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.85); }
+            50% { opacity: 0.3; transform: scale(0.85); }
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1280px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 24px;
         }
 
         .unit-card {
             background-color: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 12px;
-            padding: 20px;
-            transition: transform 0.15s ease, border-color 0.15s ease;
+            border-radius: 14px;
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
         .unit-card:hover {
             border-color: var(--accent-color);
             transform: translateY(-2px);
+            box-shadow: 0 8px 24px var(--accent-glow);
         }
 
-        .card-header {
+        .card-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
         }
 
-        .unit-name {
-            font-size: 1.125rem;
+        .unit-title {
+            font-size: 1.25rem;
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .unit-tag {
+        .online-tag {
             font-size: 0.75rem;
-            padding: 3px 8px;
-            border-radius: 4px;
-            background: rgba(56, 189, 248, 0.15);
-            color: var(--accent-color);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success-color);
+            border: 1px solid rgba(34, 197, 94, 0.3);
         }
 
-        .temp-grid {
+        .online-tag.offline {
+            background: rgba(148, 163, 184, 0.1);
+            color: var(--text-muted);
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+
+        .sensor-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 20px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
         }
 
-        .temp-item {
-            background: rgba(15, 23, 42, 0.5);
-            padding: 12px;
-            border-radius: 8px;
+        .sensor-box {
+            background: rgba(11, 15, 25, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 10px 8px;
+            border-radius: 10px;
             text-align: center;
         }
 
-        .temp-label {
+        .sensor-label {
             font-size: 0.75rem;
             color: var(--text-secondary);
             margin-bottom: 4px;
         }
 
-        .temp-val {
-            font-size: 1.375rem;
+        .sensor-val {
+            font-size: 1.25rem;
             font-weight: 700;
             color: var(--text-primary);
         }
 
-        .target-control {
-            background: rgba(15, 23, 42, 0.7);
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 16px;
+        .sensor-val.accent {
+            color: var(--accent-color);
         }
 
-        .target-header {
+        .control-section {
+            background: rgba(11, 15, 25, 0.4);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .control-group-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            font-size: 0.8125rem;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
         }
 
-        .control-row {
+        .option-group {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+
+        .option-btn {
+            background: var(--card-border);
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+            padding: 8px 4px;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s ease;
+        }
+
+        .option-btn:hover {
+            color: var(--text-primary);
+            background: #2d3c5e;
+        }
+
+        .option-btn.active {
+            background: var(--accent-color);
+            color: #0b0f19;
+            font-weight: 700;
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        .temp-stepper-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 12px;
+            background: rgba(11, 15, 25, 0.7);
+            border-radius: 8px;
+            padding: 8px 14px;
         }
 
-        .target-val {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--accent-color);
-            min-width: 60px;
-            text-align: center;
-        }
-
-        .btn-round {
+        .btn-stepper {
             background: var(--card-border);
             color: var(--text-primary);
             border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            font-size: 1.25rem;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            font-size: 1.3rem;
             font-weight: 700;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background-color 0.15s ease;
+            transition: background 0.15s ease, color 0.15s ease;
         }
 
-        .btn-round:hover {
+        .btn-stepper:hover {
             background: var(--accent-color);
-            color: #000;
+            color: #0b0f19;
+        }
+
+        .target-temp-display {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--accent-color);
         }
 
         .btn-submit {
             width: 100%;
             background: var(--accent-color);
-            color: #0f172a;
+            color: #0b0f19;
             border: none;
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             font-weight: 700;
-            font-size: 0.875rem;
+            font-size: 0.9375rem;
             cursor: pointer;
-            transition: background-color 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.15s ease, transform 0.1s ease;
         }
 
         .btn-submit:hover {
@@ -229,35 +321,37 @@ def render_dashboard_html() -> str:
 
         .btn-submit:disabled {
             background: var(--card-border);
-            color: var(--text-secondary);
+            color: var(--text-muted);
             cursor: not-allowed;
+            transform: none;
         }
 
         .card-footer {
-            margin-top: 12px;
-            padding-top: 12px;
+            margin-top: auto;
+            padding-top: 10px;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
             display: flex;
             justify-content: space-between;
             font-size: 0.75rem;
-            color: var(--text-secondary);
+            color: var(--text-muted);
         }
 
         #toast {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
+            bottom: 28px;
+            right: 28px;
             background: var(--card-bg);
             border: 1px solid var(--accent-color);
             color: var(--text-primary);
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            transform: translateY(100px);
+            padding: 14px 24px;
+            border-radius: 10px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+            transform: translateY(120px);
             opacity: 0;
-            transition: all 0.3s ease;
-            font-size: 0.875rem;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            font-size: 0.9rem;
             z-index: 1000;
+            font-weight: 600;
         }
 
         #toast.show {
@@ -268,32 +362,56 @@ def render_dashboard_html() -> str:
         .empty-state {
             grid-column: 1 / -1;
             text-align: center;
-            padding: 48px;
+            padding: 60px 20px;
             color: var(--text-secondary);
+            background: var(--card-bg);
+            border: 1px dashed var(--card-border);
+            border-radius: 12px;
         }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="header-title">
-            <h1>LGAP 실내기 모니터링 & 제어기</h1>
-            <p>RS-485 유선 직결 Direct Daemon Controller</p>
+        <div class="header-left">
+            <h1>LG 시스템 에어컨 관제 대시보드</h1>
+            <p>RS-485 Half-Duplex Direct Daemon Controller</p>
         </div>
-        <div class="status-badge">
-            <span class="status-dot"></span>
-            <span id="conn-text">데몬 연결됨 (1초 동기화)</span>
+        <div class="header-meta">
+            <span class="meta-tag highlight" id="protocol-badge">프로토콜: LGAP (16B)</span>
+            <span class="meta-tag" id="port-baud-badge">COM6 @ 9600 bps</span>
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span id="conn-text">데몬 연결됨</span>
+            </div>
         </div>
     </div>
 
     <div class="container" id="units-container">
-        <div class="empty-state">실내기 상태 데이터를 불러오는 중입니다...</div>
+        <div class="empty-state">실내기 장치 목록을 조회 중입니다...</div>
     </div>
 
     <div id="toast"></div>
 
     <script>
-        const pendingTargets = {};
+        const pendingSettings = {};
+        let systemInfo = null;
+
+        const MODES = [
+            { code: 0, label: '냉방' },
+            { code: 4, label: '난방' },
+            { code: 1, label: '제습' },
+            { code: 2, label: '송풍' },
+            { code: 3, label: '자동' }
+        ];
+
+        const FANS = [
+            { code: 1, label: '약' },
+            { code: 4, label: '중' },
+            { code: 8, label: '강' },
+            { code: 2, label: '자동' },
+            { code: 16, label: '파워' }
+        ];
 
         function showToast(message, isError = false) {
             const toast = document.getElementById('toast');
@@ -305,10 +423,44 @@ def render_dashboard_html() -> str:
             }, 2500);
         }
 
+        async function fetchSystemInfo() {
+            try {
+                const res = await fetch('/info');
+                if (res.ok) {
+                    systemInfo = await res.json();
+                    document.getElementById('protocol-badge').textContent = `프로토콜: ${systemInfo.protocol_mode} 모드`;
+                    document.getElementById('port-baud-badge').textContent = `${systemInfo.port} @ ${systemInfo.baudrate} bps`;
+                }
+            } catch (e) {
+                console.warn('시스템 정보 로드 실패:', e);
+            }
+        }
+
+        function setMode(unitId, modeCode) {
+            if (!pendingSettings[unitId]) pendingSettings[unitId] = {};
+            pendingSettings[unitId].mode = modeCode;
+            
+            // UI 버튼 활성화 갱신
+            document.querySelectorAll(`.btn-mode-${unitId}`).forEach(btn => {
+                btn.classList.toggle('active', Number(btn.dataset.code) === modeCode);
+            });
+        }
+
+        function setFan(unitId, fanCode) {
+            if (!pendingSettings[unitId]) pendingSettings[unitId] = {};
+            pendingSettings[unitId].fan_speed = fanCode;
+            
+            // UI 버튼 활성화 갱신
+            document.querySelectorAll(`.btn-fan-${unitId}`).forEach(btn => {
+                btn.classList.toggle('active', Number(btn.dataset.code) === fanCode);
+            });
+        }
+
         function adjustTemp(unitId, delta) {
-            const current = pendingTargets[unitId] || 24;
+            if (!pendingSettings[unitId]) pendingSettings[unitId] = {};
+            const current = pendingSettings[unitId].target_temp || 24;
             const updated = Math.max(16, Math.min(30, current + delta));
-            pendingTargets[unitId] = updated;
+            pendingSettings[unitId].target_temp = updated;
             
             const label = document.getElementById(`target-val-${unitId}`);
             if (label) {
@@ -317,40 +469,49 @@ def render_dashboard_html() -> str:
         }
 
         async function sendControl(unitId) {
-            const targetTemp = pendingTargets[unitId];
-            if (!targetTemp) return;
+            const settings = pendingSettings[unitId];
+            if (!settings) return;
 
             const btn = document.getElementById(`btn-submit-${unitId}`);
             if (btn) btn.disabled = true;
+
+            const payload = {
+                id: Number(unitId),
+                target_temp: Number(settings.target_temp || 24),
+                mode: Number(settings.mode ?? 0),
+                fan_speed: Number(settings.fan_speed ?? 4)
+            };
 
             try {
                 const res = await fetch('/control', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: Number(unitId), target_temp: Number(targetTemp) })
+                    body: JSON.stringify(payload)
                 });
 
                 if (res.ok) {
-                    showToast(`[실내기 #${unitId}] 목표 온도(${targetTemp}°C) 제어 명령 전송 완료`);
+                    const modeObj = MODES.find(m => m.code === payload.mode);
+                    const fanObj = FANS.find(f => f.code === payload.fan_speed);
+                    showToast(`[실내기 #${unitId}] ${payload.target_temp}°C / ${modeObj ? modeObj.label : '모드'} / ${fanObj ? fanObj.label : '풍량'} 전송 완료`);
                 } else {
                     const err = await res.json();
-                    showToast(`제어 실패: ${err.error || '오류 발생'}`, true);
+                    showToast(`제어 실패: ${err.error || '오류'}`, true);
                 }
             } catch (e) {
-                showToast(`네트워크 오류: ${e.message}`, true);
+                showToast(`통신 오류: ${e.message}`, true);
             } finally {
                 if (btn) btn.disabled = false;
             }
         }
 
         function getModeText(modeCode) {
-            const modes = { 0: '냉방', 1: '제습', 2: '송풍', 3: '자동', 4: '난방' };
-            return modes[modeCode] ?? `모드(${modeCode})`;
+            const m = MODES.find(item => item.code === modeCode);
+            return m ? m.label : `모드(${modeCode})`;
         }
 
         function getFanText(fanCode) {
-            const fans = { 1: '약', 2: '자동', 4: '중', 8: '강', 16: '파워' };
-            return fans[fanCode] ?? `풍량(${fanCode})`;
+            const f = FANS.find(item => item.code === fanCode);
+            return f ? f.label : `풍량(${fanCode})`;
         }
 
         async function fetchStates() {
@@ -360,73 +521,172 @@ def render_dashboard_html() -> str:
                 const states = await res.json();
                 
                 const container = document.getElementById('units-container');
-                const unitIds = Object.keys(states).map(Number).sort((a, b) => a - b);
+                
+                // 설정된 타겟 실내기 목록 또는 응답 실내기 목록 종합
+                const activeIds = Object.keys(states).map(Number);
+                const configIds = systemInfo && systemInfo.target_units ? systemInfo.target_units : [];
+                const allIds = Array.from(new Set([...activeIds, ...configIds])).sort((a, b) => a - b);
 
-                if (unitIds.length === 0) {
-                    container.innerHTML = '<div class="empty-state">등록된 실내기 응답이 없습니다. (폴링 진행 중)</div>';
+                if (allIds.length === 0) {
+                    container.innerHTML = '<div class="empty-state">등록된 실내기 응답이 없습니다. (시리얼 통신 폴링 진행 중)</div>';
                     return;
                 }
 
-                let html = '';
-                unitIds.forEach(id => {
-                    const state = states[id];
-                    if (!(id in pendingTargets)) {
-                        pendingTargets[id] = state.target_temp || 24;
+                allIds.forEach(id => {
+                    const state = states[id] || {
+                        target_temp: 24,
+                        room_temp: 0.0,
+                        pipe_temp: 0.0,
+                        op_mode: 0,
+                        fan_speed: 4,
+                        is_online: false,
+                        last_updated: Date.now() / 1000
+                    };
+
+                    if (!pendingSettings[id]) {
+                        pendingSettings[id] = {
+                            target_temp: state.target_temp || 24,
+                            mode: state.op_mode ?? 0,
+                            fan_speed: state.fan_speed ?? 4
+                        };
                     }
-                    const selectedTarget = pendingTargets[id];
 
-                    html += `
-                    <div class="unit-card">
-                        <div class="card-header">
-                            <div class="unit-name">실내기 #${id}</div>
-                            <div class="unit-tag">${state.is_online ? '온라인' : '오프라인'}</div>
-                        </div>
+                    const curPending = pendingSettings[id];
+                    let card = document.getElementById(`unit-card-${id}`);
 
-                        <div class="temp-grid">
-                            <div class="temp-item">
-                                <div class="temp-label">실내 현재온도</div>
-                                <div class="temp-val">${state.room_temp}°C</div>
-                            </div>
-                            <div class="temp-item">
-                                <div class="temp-label">배관 온도</div>
-                                <div class="temp-val">${state.pipe_temp}°C</div>
-                            </div>
-                        </div>
-
-                        <div class="target-control">
-                            <div class="target-header">
-                                <span>희망 온도 설정</span>
-                                <span>현재 설정: ${state.target_temp}°C</span>
-                            </div>
-                            <div class="control-row">
-                                <button class="btn-round" onclick="adjustTemp(${id}, -1)">-</button>
-                                <div class="target-val" id="target-val-${id}">${selectedTarget}°C</div>
-                                <button class="btn-round" onclick="adjustTemp(${id}, 1)">+</button>
-                            </div>
-                        </div>
-
-                        <button class="btn-submit" id="btn-submit-${id}" onclick="sendControl(${id})">
-                            희망 온도로 즉시 제어
-                        </button>
-
-                        <div class="card-footer">
-                            <span>운전: ${getModeText(state.op_mode)} / ${getFanText(state.fan_speed)}</span>
-                            <span>수신: ${new Date(state.last_updated * 1000).toLocaleTimeString()}</span>
-                        </div>
-                    </div>
-                    `;
+                    if (!card) {
+                        // 최초 카드 렌더링
+                        const cardDiv = document.createElement('div');
+                        cardDiv.id = `unit-card-${id}`;
+                        cardDiv.className = 'unit-card';
+                        cardDiv.innerHTML = buildCardHtml(id, state, curPending);
+                        container.appendChild(cardDiv);
+                    } else {
+                        // 센서 및 실시간 텍스트 부분만 선택적 갱신
+                        updateCardValues(id, state);
+                    }
                 });
 
-                container.innerHTML = html;
                 document.getElementById('conn-text').textContent = '데몬 정상 동작 중';
             } catch (e) {
                 document.getElementById('conn-text').textContent = '데몬 통신 끊김';
             }
         }
 
-        // 1초 주기 실시간 상태 갱신
-        setInterval(fetchStates, 1000);
-        fetchStates();
+        function buildCardHtml(id, state, pending) {
+            const modeButtons = MODES.map(m => `
+                <button class="option-btn btn-mode-${id} ${pending.mode === m.code ? 'active' : ''}" 
+                        data-code="${m.code}" 
+                        onclick="setMode(${id}, ${m.code})">${m.label}</button>
+            `).join('');
+
+            const fanButtons = FANS.map(f => `
+                <button class="option-btn btn-fan-${id} ${pending.fan_speed === f.code ? 'active' : ''}" 
+                        data-code="${f.code}" 
+                        onclick="setFan(${id}, ${f.code})">${f.label}</button>
+            `).join('');
+
+            return `
+                <div class="card-top">
+                    <div class="unit-title">실내기 #${id}</div>
+                    <div class="online-tag ${state.is_online ? '' : 'offline'}" id="online-tag-${id}">
+                        ${state.is_online ? '온라인' : '대기중'}
+                    </div>
+                </div>
+
+                <div class="sensor-grid">
+                    <div class="sensor-box">
+                        <div class="sensor-label">실내 현재온도</div>
+                        <div class="sensor-val" id="room-temp-${id}">${state.room_temp > 0 ? state.room_temp + '°C' : '-'}</div>
+                    </div>
+                    <div class="sensor-box">
+                        <div class="sensor-label">배관 온도</div>
+                        <div class="sensor-val" id="pipe-temp-${id}">${state.pipe_temp > 0 ? state.pipe_temp + '°C' : '-'}</div>
+                    </div>
+                    <div class="sensor-box">
+                        <div class="sensor-label">현재 설정</div>
+                        <div class="sensor-val accent" id="cur-target-${id}">${state.target_temp ? state.target_temp + '°C' : '-'}</div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div>
+                        <div class="control-group-title">
+                            <span>운전 모드 선택</span>
+                            <span id="cur-mode-label-${id}">현재: ${getModeText(state.op_mode)}</span>
+                        </div>
+                        <div class="option-group">
+                            ${modeButtons}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="control-group-title">
+                            <span>풍량 선택</span>
+                            <span id="cur-fan-label-${id}">현재: ${getFanText(state.fan_speed)}</span>
+                        </div>
+                        <div class="option-group">
+                            ${fanButtons}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="control-group-title">
+                            <span>희망 온도 조절</span>
+                        </div>
+                        <div class="temp-stepper-row">
+                            <button class="btn-stepper" onclick="adjustTemp(${id}, -1)">-</button>
+                            <div class="target-temp-display" id="target-val-${id}">${pending.target_temp}°C</div>
+                            <button class="btn-stepper" onclick="adjustTemp(${id}, 1)">+</button>
+                        </div>
+                    </div>
+
+                    <button class="btn-submit" id="btn-submit-${id}" onclick="sendControl(${id})">
+                        설정값 즉시 전송 (온도/모드/풍량)
+                    </button>
+                </div>
+
+                <div class="card-footer">
+                    <span id="footer-status-${id}">상태: ${getModeText(state.op_mode)} / ${getFanText(state.fan_speed)}</span>
+                    <span id="footer-time-${id}">수신: ${new Date(state.last_updated * 1000).toLocaleTimeString()}</span>
+                </div>
+            `;
+        }
+
+        function updateCardValues(id, state) {
+            const roomEl = document.getElementById(`room-temp-${id}`);
+            if (roomEl) roomEl.textContent = state.room_temp > 0 ? `${state.room_temp}°C` : '-';
+
+            const pipeEl = document.getElementById(`pipe-temp-${id}`);
+            if (pipeEl) pipeEl.textContent = state.pipe_temp > 0 ? `${state.pipe_temp}°C` : '-';
+
+            const curTargetEl = document.getElementById(`cur-target-${id}`);
+            if (curTargetEl) curTargetEl.textContent = state.target_temp ? `${state.target_temp}°C` : '-';
+
+            const tagEl = document.getElementById(`online-tag-${id}`);
+            if (tagEl) {
+                tagEl.textContent = state.is_online ? '온라인' : '대기중';
+                tagEl.className = `online-tag ${state.is_online ? '' : 'offline'}`;
+            }
+
+            const modeLabel = document.getElementById(`cur-mode-label-${id}`);
+            if (modeLabel) modeLabel.textContent = `현재: ${getModeText(state.op_mode)}`;
+
+            const fanLabel = document.getElementById(`cur-fan-label-${id}`);
+            if (fanLabel) fanLabel.textContent = `현재: ${getFanText(state.fan_speed)}`;
+
+            const footerStatus = document.getElementById(`footer-status-${id}`);
+            if (footerStatus) footerStatus.textContent = `상태: ${getModeText(state.op_mode)} / ${getFanText(state.fan_speed)}`;
+
+            const footerTime = document.getElementById(`footer-time-${id}`);
+            if (footerTime) footerTime.textContent = `수신: ${new Date(state.last_updated * 1000).toLocaleTimeString()}`;
+        }
+
+        // 초기화 및 주기적 갱신
+        fetchSystemInfo().then(() => {
+            fetchStates();
+            setInterval(fetchStates, 1000);
+        });
     </script>
 </body>
 </html>

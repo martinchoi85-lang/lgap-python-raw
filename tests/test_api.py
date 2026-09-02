@@ -27,7 +27,15 @@ class TestApiInterface(unittest.TestCase):
         self.assertEqual(req.status, 200)
         self.assertIn("text/html", req.headers.get("Content-Type", ""))
         html = req.read().decode('utf-8')
-        self.assertIn("LGAP 실내기 모니터링 & 제어기", html)
+        self.assertIn("LG 시스템 에어컨 관제 대시보드", html)
+
+    def test_get_info(self) -> None:
+        req = urllib.request.urlopen("http://localhost:8888/info")
+        self.assertEqual(req.status, 200)
+        data = json.loads(req.read().decode('utf-8'))
+        self.assertIn("protocol_mode", data)
+        self.assertIn("baudrate", data)
+        self.assertIn("port", data)
 
     def test_get_states(self) -> None:
         # 상태 주입
@@ -39,7 +47,7 @@ class TestApiInterface(unittest.TestCase):
         self.assertEqual(data["1"]["target_temp"], 24)
 
     def test_post_control(self) -> None:
-        payload = json.dumps({"id": 1, "target_temp": 22}).encode('utf-8')
+        payload = json.dumps({"id": 1, "target_temp": 22, "mode": 0, "fan_speed": 4}).encode('utf-8')
         req = urllib.request.Request("http://localhost:8888/control", data=payload, headers={"Content-Type": "application/json"})
         response = urllib.request.urlopen(req)
         self.assertEqual(response.status, 200)

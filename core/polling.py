@@ -163,6 +163,7 @@ class LgapEngine:
                     self._poll_index = (self._poll_index + 1) % len(target_units)
                     
                     # [사용자 요청 8바이트 패킷 테스트: 00 00 A0 00 00 00 08 FD]
+                    # tx_packet = bytes.fromhex("80 00 A0 00 00 00 08 7D")
                     tx_packet = bytes.fromhex("00 00 A0 00 00 00 08 FD")
                     
                     # [기존 V-Net 23바이트 폴링 생성 로직 - 주석 보존]
