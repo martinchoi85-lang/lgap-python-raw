@@ -1,5 +1,8 @@
 import typing
 
+# 가상 에어컨 Mock 모드 여부 (실제 하드웨어 연결 시 반드시 False)
+USE_MOCK: bool = False
+
 # 시리얼 포트 경로 (Windows: "COM6", Linux: "/dev/ttyUSB0")
 SERIAL_PORT: str = "COM6"
 

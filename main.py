@@ -19,13 +19,25 @@ logging.basicConfig(
 logger = logging.getLogger("LGAP-Daemon")
 
 class DaemonController:
-    def __init__(self, use_mock: bool = True) -> None:
+    def __init__(self, use_mock: typing.Optional[bool] = None) -> None:
         self.state_manager = StateManager()
         
-        # 의존성 주입: 하드웨어 결선 전이므로 MockSerial 사용
-        serial_class = MockSerial if use_mock else __import__('serial').Serial
-        self.engine = LgapEngine(state_manager=self.state_manager, serial_class=serial_class)
+        # Mock 여부 결정 (CLI/인자 우선, 없으면 config.USE_MOCK 사용)
+        is_mock = use_mock if use_mock is not None else getattr(config, 'USE_MOCK', False)
         
+        if is_mock:
+            logger.warning("=" * 60)
+            logger.warning("[WARNING] 현재 가상 에어컨 MockSerial 모드로 동작 중입니다!")
+            logger.warning("실제 RS-485 하드웨어 통신을 하려면 use_mock=False 또는 config.USE_MOCK=False 로 설정하세요.")
+            logger.warning("=" * 60)
+            serial_class = MockSerial
+        else:
+            logger.info("=" * 60)
+            logger.info(f"[REAL HARDWARE] 실제 물리 시리얼 연결 모드 ({config.SERIAL_PORT} @ {config.BAUDRATE} bps, 모드: {config.PROTOCOL_MODE})")
+            logger.info("=" * 60)
+            serial_class = __import__('serial').Serial
+            
+        self.engine = LgapEngine(state_manager=self.state_manager, serial_class=serial_class)
         self.api_server = ApiInterfaceServer(state_manager=self.state_manager, engine=self.engine, port=8080)
         self._shutdown_requested = False
 
@@ -62,10 +74,23 @@ class DaemonController:
         logger.info("LGAP Daemon 종료 완료.")
 
 if __name__ == "__main__":
-    ##################################
-    ### 실 환경 배포 시 False 로 전환 ###
-    ##################################
-    controller = DaemonController(use_mock=True) 
+    import argparse
+    parser = argparse.ArgumentParser(description="LGAP & V-Net Real Serial Daemon")
+    parser.add_argument("--mock", action="store_true", help="가상 에어컨 MockSerial 모드로 실행")
+    parser.add_argument("--port", type=str, default=None, help="시리얼 포트 직접 지정 (예: COM6, /dev/ttyUSB0)")
+    parser.add_argument("--baud", type=int, default=None, help="보레이트 직접 지정 (예: 9600, 4800)")
+    parser.add_argument("--mode", type=str, choices=["LGAP", "VNET", "AUTO_SNIFF"], default=None, help="프로토콜 모드")
+    args = parser.parse_args()
+
+    if args.port:
+        config.SERIAL_PORT = args.port
+    if args.baud:
+        config.BAUDRATE = args.baud
+    if args.mode:
+        config.PROTOCOL_MODE = args.mode
+
+    use_mock_flag = True if args.mock else getattr(config, 'USE_MOCK', False)
+    controller = DaemonController(use_mock=use_mock_flag) 
     
     # 시그널 핸들러 등록 (Graceful Shutdown)
     signal.signal(signal.SIGINT, controller.request_shutdown)
