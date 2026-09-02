@@ -79,10 +79,11 @@ class LgapEngine:
                     time.sleep(0.01)
                 
                 if total_raw_bytes:
-                    logging.warning(f"타임아웃 발생 (일부 데이터 수신됨 {len(total_raw_bytes)}B): {bytes(total_raw_bytes).hex(' ')}")
+                    logging.info(f"[TRANSACTION SUCCESS] 총 {len(total_raw_bytes)}바이트 응답 수신 완료: {bytes(total_raw_bytes).hex(' ')}")
+                    return bytes(total_raw_bytes)
                 else:
                     logging.warning(f"트랜잭션 타임아웃. 시리얼 수신 데이터 0바이트 (TX: {tx_packet.hex(' ')})")
-                return None
+                    return None
                 
             except Exception as e:
                 logging.error(f"트랜잭션 도중 시리얼 오류 발생: {e} | TX: {tx_packet.hex(' ')}")
@@ -132,18 +133,27 @@ class LgapEngine:
                     continue
                     
                 target_id = config.TARGET_INDOOR_UNITS[self._poll_index]
-                tx_packet = build_poll_packet(target_id, header=getattr(config, 'POLL_HEADER', 0x00))
+                
+                # [기존 16바이트 패킷 생성 로직 - 주석 보존]
+                # tx_packet = build_poll_packet(target_id, header=getattr(config, 'POLL_HEADER', 0x00))
+                
+                # [현장 실측 수집된 23바이트 실제 TX 폴링 패킷 (Unit #4 대상)]
+                # 원본 로그 Rx:102 - C1 00 00 04 00 00 01 68 00 00 02 03 01 01 01 01 02 02 06 02 2C 4A FE
+                tx_packet = bytes.fromhex("C1 00 00 04 00 00 01 68 00 00 02 03 01 01 01 01 02 02 06 02 2C 4A FE")
+                
                 self._poll_index = (self._poll_index + 1) % len(config.TARGET_INDOOR_UNITS)
                 
                 response = self._execute_transaction(tx_packet)
                 if response:
-                    if self.state_manager:
-                        try:
-                            parsed = parse_packet(response)
-                            self.state_manager.update_state(target_id, parsed)
-                            logging.info(f"[STATE] Unit {target_id} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C, Pipe: {parsed['pipe_temp']}°C")
-                        except ValueError as e:
-                            logging.error(f"폴링 응답 파싱 실패: {e}")
+                    logging.info(f"[POLL RESPONSE] 실외기/실내기 회신 데이터 획득: {response.hex(' ')}")
+                    # [기존 16바이트 파싱 로직 - 주석 보존]
+                    # if self.state_manager:
+                    #     try:
+                    #         parsed = parse_packet(response)
+                    #         self.state_manager.update_state(target_id, parsed)
+                    #         logging.info(f"[STATE] Unit {target_id} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C, Pipe: {parsed['pipe_temp']}°C")
+                    #     except ValueError as e:
+                    #         logging.error(f"폴링 응답 파싱 실패: {e}")
             
             time.sleep(config.POLL_INTERVAL)
 
