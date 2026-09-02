@@ -1,4 +1,11 @@
+import os
 import sys
+
+# 프로젝트 루트 디렉토리를 sys.path에 추가 (상위 모듈 임포트 보장)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import time
 import argparse
 import logging
