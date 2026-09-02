@@ -11,7 +11,8 @@ from core.protocol import (
     PACKET_SIZE,
     parse_packet,
     build_poll_packet,
-    build_control_packet
+    build_control_packet,
+    VNetProtocol
 )
 from core.state import StateManager
 
@@ -22,11 +23,12 @@ class LgapEngine:
         self.serial_conn: typing.Any = None
         self._running: bool = False
         self._poll_index: int = 0
+        self._vnet_seq: int = 0x68  # V-Net 시퀀스 카운터
         self.state_manager: typing.Optional[StateManager] = state_manager
         self.serial_class: typing.Any = serial_class
         
     def connect_serial(self) -> bool:
-        """시리얼 포트 연결 및 초기화"""
+        """시리얼 포트 연결 및 초기화 (Half-Duplex 8N1)"""
         try:
             if self.serial_conn and self.serial_conn.is_open:
                 self.serial_conn.close()
@@ -39,7 +41,7 @@ class LgapEngine:
                 stopbits=serial.STOPBITS_ONE,
                 timeout=config.RX_TIMEOUT
             )
-            logging.info(f"시리얼 포트 연결 성공: {config.SERIAL_PORT}")
+            logging.info(f"시리얼 포트 연결 성공: {config.SERIAL_PORT} @ {config.BAUDRATE} bps (모드: {config.PROTOCOL_MODE})")
             return True
         except Exception as e:
             logging.error(f"시리얼 연결 실패 ({config.SERIAL_PORT}): {e}")
@@ -47,19 +49,20 @@ class LgapEngine:
             return False
 
     def _execute_transaction(self, tx_packet: bytes) -> typing.Optional[bytes]:
+        """Half-Duplex Mutex Lock 보호 하에서 TX 송신 및 RX 응답 수신 트랜잭션 수행"""
         if not self.serial_conn or not self.serial_conn.is_open:
             logging.error("시리얼 포트가 열려있지 않아 트랜잭션을 실행할 수 없습니다.")
             return None
 
         with self.serial_lock:
             try:
-                logging.info(f"[TX] {tx_packet.hex(' ')}")
+                logging.info(f"[TX {len(tx_packet):02d}B] {tx_packet.hex(' ')}")
                 self.serial_conn.write(tx_packet)
                 self.serial_conn.flush()
-                time.sleep(0.05)
+                time.sleep(0.04)  # Half-duplex 트랜시버 전환 마진
                 
-                # 수신 대기
-                sync_stream = FrameSyncStream(header_pattern=bytes([getattr(config, 'POLL_HEADER', 0x00)])) 
+                # 수신 대기 및 슬라이딩 윈도우 프레이밍
+                sync_stream = FrameSyncStream() 
                 start_time = time.time()
                 total_raw_bytes = bytearray()
                 
@@ -73,13 +76,13 @@ class LgapEngine:
                         valid_frames = sync_stream.feed(raw_data)
                         if valid_frames:
                             rx_frame = valid_frames[0]
-                            logging.info(f"[VALID RX] 정상 16바이트 패킷 파싱 성공: {rx_frame.hex(' ')}")
+                            logging.info(f"[VALID RX {len(rx_frame):02d}B] 정상 프레임 수신: {rx_frame.hex(' ')}")
                             return rx_frame
                             
                     time.sleep(0.01)
                 
                 if total_raw_bytes:
-                    logging.info(f"[TRANSACTION SUCCESS] 총 {len(total_raw_bytes)}바이트 응답 수신 완료: {bytes(total_raw_bytes).hex(' ')}")
+                    logging.info(f"[TRANSACTION RAW] 수신 완료 ({len(total_raw_bytes)}B): {bytes(total_raw_bytes).hex(' ')}")
                     return bytes(total_raw_bytes)
                 else:
                     logging.warning(f"트랜잭션 타임아웃. 시리얼 수신 데이터 0바이트 (TX: {tx_packet.hex(' ')})")
@@ -94,15 +97,17 @@ class LgapEngine:
         self._running = True
         engine_thread = threading.Thread(target=self._engine_loop, daemon=True)
         engine_thread.start()
-        logging.info("LGAP Engine 스케줄러가 시작되었습니다.")
+        logging.info(f"LGAP/V-Net Engine 스케줄러가 시작되었습니다. (모드: {config.PROTOCOL_MODE})")
 
     def stop_engine(self) -> None:
         self._running = False
         if self.serial_conn and getattr(self.serial_conn, 'is_open', False):
             self.serial_conn.close()
-        logging.info("LGAP Engine 스케줄러가 중지되었습니다.")
+        logging.info("LGAP/V-Net Engine 스케줄러가 중지되었습니다.")
 
     def _engine_loop(self) -> None:
+        mode = getattr(config, 'PROTOCOL_MODE', 'VNET').upper()
+        
         while self._running:
             if not self.serial_conn or not self.serial_conn.is_open:
                 logging.warning("시리얼 연결 유실 감지. 재연결 시도 중...")
@@ -110,41 +115,86 @@ class LgapEngine:
                     time.sleep(2.0)
                     continue
 
+            # 1. 외부 제어 명령 큐 우선 처리 (Preemption)
             if not self.command_queue.empty():
                 try:
                     command = self.command_queue.get_nowait()
-                    tx_packet = build_control_packet(command)
-                    logging.info(f"[CONTROL TX] 제어 명령 우선 전송: {command} (Hex: {tx_packet.hex(' ')})")
-                    
+                    if mode == "VNET":
+                        tx_packet = VNetProtocol.build_control_frame(
+                            command=command,
+                            central_addr=getattr(config, 'VNET_CENTRAL_ADDR', 0x00),
+                            seq=self._vnet_seq
+                        )
+                        self._vnet_seq = (self._vnet_seq + 1) & 0xFF
+                    else:
+                        tx_packet = build_control_packet(command)
+
+                    logging.info(f"[CONTROL TX] 제어 명령 전송: {command} (Hex: {tx_packet.hex(' ')})")
                     response = self._execute_transaction(tx_packet)
                     if response:
-                        logging.info(f"[CONTROL RX] 제어 완료 응답 수신: {response.hex(' ')}")
+                        logging.info(f"[CONTROL RX] 제어 완료 응답: {response.hex(' ')}")
                         if self.state_manager:
                             try:
-                                parsed = parse_packet(response)
+                                parsed = VNetProtocol.parse_frame(response) if mode == "VNET" else parse_packet(response)
                                 self.state_manager.update_state(command.get("id", 0), parsed)
-                            except ValueError as e:
+                            except Exception as e:
                                 logging.error(f"제어 응답 파싱 실패: {e}")
                 except queue.Empty:
                     pass
-            else:
-                # [현장 실측 스니퍼 패킷 순차 테스트 풀]
-                field_packets = [
-                    ("[0/5] 마스터 초기화 브로드캐스트", bytes.fromhex("C1 00 00 00 00 A0 01 C8 04 04 A6 E0 05 05 E6 E8 88 48 44 05 05 84 80 80 E8 05 A6 80 8A 0D")),
-                    ("[1/5] 4번 실내기 폴링 (Seq 68)", bytes.fromhex("C1 00 00 04 00 00 01 68 00 00 02 03 01 01 01 01 02 02 06 02 2C 4A FE")),
-                    ("[2/5] 5번 실내기 폴링 (Seq 6A)", bytes.fromhex("C1 00 00 05 00 00 01 6A 00 00 02 03 01 01 01 01 02 02 06 02 8E 8B F1")),
-                    ("[3/5] 전체 어나운스 리프레시", bytes.fromhex("C1 00 00 00 00 80 01 ED 04 04 A7 E0 05 05 E6 E8 88 48 04 A2 A9 80 24 04 04 A7 E8 05 E0 8D F6")),
-                    ("[4/5] 4번 실내기 폴링 (Seq 69)", bytes.fromhex("C1 00 00 04 00 00 01 69 00 00 02 03 01 01 01 01 02 02 06 02 00 CB FB")),
-                    ("[5/5] 5번 실내기 폴링 (Seq 6A-2)", bytes.fromhex("C1 00 00 05 00 00 01 6A 00 00 02 03 01 01 01 01 02 02 06 02 00 28 FA")),
-                ]
 
-                pkt_desc, tx_packet = field_packets[self._poll_index % len(field_packets)]
-                self._poll_index = (self._poll_index + 1) % len(field_packets)
-                
-                logging.info(f"==> {pkt_desc} 송신 시작...")
-                response = self._execute_transaction(tx_packet)
-                if response:
-                    logging.info(f"[SUCCESS] {pkt_desc} 응답 수신 성공! (총 {len(response)}바이트): {response.hex(' ')}")
+            # 2. 주기적 상태 폴링 루프
+            else:
+                if mode == "AUTO_SNIFF":
+                    # 패시브 감청 모드 (TX 송신 없이 수신 버퍼 캡처)
+                    with self.serial_lock:
+                        if self.serial_conn.in_waiting > 0:
+                            raw = self.serial_conn.read(self.serial_conn.in_waiting)
+                            logging.info(f"[SNIFF RX] {len(raw)}B: {raw.hex(' ')}")
+                    time.sleep(0.1)
+                    continue
+
+                elif mode == "VNET":
+                    target_units = getattr(config, 'VNET_TARGET_UNITS', [4, 5])
+                    if not target_units:
+                        time.sleep(config.POLL_INTERVAL)
+                        continue
+                        
+                    target_id = target_units[self._poll_index % len(target_units)]
+                    self._poll_index = (self._poll_index + 1) % len(target_units)
+                    
+                    tx_packet = VNetProtocol.build_poll_frame(
+                        unit_id=target_id,
+                        central_addr=getattr(config, 'VNET_CENTRAL_ADDR', 0x00),
+                        seq=self._vnet_seq
+                    )
+                    self._vnet_seq = (self._vnet_seq + 1) & 0xFF
+                    
+                    response = self._execute_transaction(tx_packet)
+                    if response and self.state_manager:
+                        try:
+                            parsed = VNetProtocol.parse_frame(response)
+                            self.state_manager.update_state(target_id, parsed)
+                            logging.info(f"[V-Net STATE] Unit #{target_id} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C, Mode: {parsed['mode']}")
+                        except Exception as e:
+                            logging.debug(f"응답 데이터 파싱 실패: {e}")
+
+                else: # 구형 LGAP 모드 (16바이트)
+                    target_units = getattr(config, 'TARGET_INDOOR_UNITS', [1, 2, 3, 4])
+                    if not target_units:
+                        time.sleep(config.POLL_INTERVAL)
+                        continue
+                        
+                    target_id = target_units[self._poll_index % len(target_units)]
+                    self._poll_index = (self._poll_index + 1) % len(target_units)
+                    
+                    tx_packet = build_poll_packet(target_id, header=getattr(config, 'POLL_HEADER', 0x00))
+                    response = self._execute_transaction(tx_packet)
+                    if response and self.state_manager:
+                        try:
+                            parsed = parse_packet(response)
+                            self.state_manager.update_state(target_id, parsed)
+                            logging.info(f"[LGAP STATE] Unit #{target_id} -> Target: {parsed['target_temp']}°C, Room: {parsed['room_temp']}°C")
+                        except Exception as e:
+                            logging.debug(f"LGAP 응답 파싱 실패: {e}")
             
             time.sleep(config.POLL_INTERVAL)
-
