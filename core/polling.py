@@ -162,12 +162,16 @@ class LgapEngine:
                     target_id = target_units[self._poll_index % len(target_units)]
                     self._poll_index = (self._poll_index + 1) % len(target_units)
                     
-                    tx_packet = VNetProtocol.build_poll_frame(
-                        unit_id=target_id,
-                        central_addr=getattr(config, 'VNET_CENTRAL_ADDR', 0x00),
-                        seq=self._vnet_seq
-                    )
-                    self._vnet_seq = (self._vnet_seq + 1) & 0xFF
+                    # [사용자 요청 8바이트 패킷 테스트: 00 00 A0 00 00 00 08 FD]
+                    tx_packet = bytes.fromhex("00 00 A0 00 00 00 08 FD")
+                    
+                    # [기존 V-Net 23바이트 폴링 생성 로직 - 주석 보존]
+                    # tx_packet = VNetProtocol.build_poll_frame(
+                    #     unit_id=target_id,
+                    #     central_addr=getattr(config, 'VNET_CENTRAL_ADDR', 0x00),
+                    #     seq=self._vnet_seq
+                    # )
+                    # self._vnet_seq = (self._vnet_seq + 1) & 0xFF
                     
                     response = self._execute_transaction(tx_packet)
                     if response and self.state_manager:

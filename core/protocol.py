@@ -244,7 +244,7 @@ class FrameSyncStream:
         self.buffer.extend(data)
         valid_frames: typing.List[bytes] = []
         
-        while len(self.buffer) >= 16:
+        while len(self.buffer) >= 8:
             # 유효 헤더 탐색
             first_valid_idx = -1
             for i, b in enumerate(self.buffer):
@@ -284,8 +284,18 @@ class FrameSyncStream:
                 else:
                     break
                     
-            # 3. 구형 16바이트 LGAP 패킷 (0x00)
+            # 3. LGAP 패킷 (0x00 시작 - 8바이트 또는 16바이트)
             elif header == 0x00:
+                # 8바이트 단문 체크섬 검사 (sum[:7] ^ 0x55 == byte[7])
+                if len(self.buffer) >= 8:
+                    candidate_8 = bytes(self.buffer[:8])
+                    cs_8 = (sum(candidate_8[:7]) ^ 0x55) & 0xFF
+                    if candidate_8[7] == cs_8:
+                        valid_frames.append(candidate_8)
+                        self.buffer = self.buffer[8:]
+                        continue
+                
+                # 16바이트 표준 패킷 검사
                 if len(self.buffer) >= PACKET_SIZE:
                     frame = bytes(self.buffer[:PACKET_SIZE])
                     if validate_packet(frame):
