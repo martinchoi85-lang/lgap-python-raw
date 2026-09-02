@@ -58,21 +58,30 @@ class LgapEngine:
                 self.serial_conn.flush()
                 time.sleep(0.05)
                 
-                sync_stream = FrameSyncStream(header_pattern=b'\x00') 
+                # 수신 대기
+                sync_stream = FrameSyncStream(header_pattern=bytes([getattr(config, 'POLL_HEADER', 0x00)])) 
                 start_time = time.time()
+                total_raw_bytes = bytearray()
+                
                 while (time.time() - start_time) <= config.RX_TIMEOUT:
-                    if self.serial_conn.in_waiting > 0:
-                        raw_data = self.serial_conn.read(self.serial_conn.in_waiting)
-                        valid_frames = sync_stream.feed(raw_data)
+                    in_waiting = self.serial_conn.in_waiting
+                    if in_waiting > 0:
+                        raw_data = self.serial_conn.read(in_waiting)
+                        total_raw_bytes.extend(raw_data)
+                        logging.info(f"[RAW RX] {len(raw_data)}바이트 수신됨 (누적 {len(total_raw_bytes)}B): {raw_data.hex(' ')}")
                         
+                        valid_frames = sync_stream.feed(raw_data)
                         if valid_frames:
                             rx_frame = valid_frames[0]
-                            logging.info(f"[RX] {rx_frame.hex(' ')}")
+                            logging.info(f"[VALID RX] 정상 16바이트 패킷 파싱 성공: {rx_frame.hex(' ')}")
                             return rx_frame
                             
                     time.sleep(0.01)
-                    
-                logging.warning(f"트랜잭션 타임아웃. 응답 없음. (TX: {tx_packet.hex(' ')})")
+                
+                if total_raw_bytes:
+                    logging.warning(f"타임아웃 발생 (일부 데이터 수신됨 {len(total_raw_bytes)}B): {bytes(total_raw_bytes).hex(' ')}")
+                else:
+                    logging.warning(f"트랜잭션 타임아웃. 시리얼 수신 데이터 0바이트 (TX: {tx_packet.hex(' ')})")
                 return None
                 
             except Exception as e:
@@ -123,7 +132,7 @@ class LgapEngine:
                     continue
                     
                 target_id = config.TARGET_INDOOR_UNITS[self._poll_index]
-                tx_packet = build_poll_packet(target_id)
+                tx_packet = build_poll_packet(target_id, header=getattr(config, 'POLL_HEADER', 0x00))
                 self._poll_index = (self._poll_index + 1) % len(config.TARGET_INDOOR_UNITS)
                 
                 response = self._execute_transaction(tx_packet)

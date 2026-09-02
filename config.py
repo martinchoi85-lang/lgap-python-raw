@@ -9,8 +9,11 @@ BAUDRATE: int = 4800
 # 실내기 장치별 순차 폴링 사이의 미세 대기 시간 (초 단위)
 POLL_INTERVAL: float = 1.0
 
-# 에어컨 응답 대기 제한 시간 (150ms)
-RX_TIMEOUT: float = 0.15
+# 에어컨 응답 대기 제한 시간 (초 단위)
+RX_TIMEOUT: float = 1.0
+
+# 폴링 패킷 헤더 바이트 (기본 0x00, 일부 장비 0x02 또는 0x01)
+POLL_HEADER: int = 0x00
 
 # 모니터링 및 제어 대상이 되는 실내기 고유 ID 리스트
 TARGET_INDOOR_UNITS: typing.List[int] = [1, 2, 3, 4]

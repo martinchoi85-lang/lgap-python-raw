@@ -118,12 +118,12 @@ class FrameSyncStream:
                 
         return valid_frames
 
-def build_poll_packet(unit_id: int) -> bytes:
+def build_poll_packet(unit_id: int, header: int = 0x00) -> bytes:
     """
     실내기 상태 조회를 위한 16바이트 폴링 패킷을 생성하고 체크섬을 계산합니다.
     """
     packet = bytearray(PACKET_SIZE)
-    packet[0] = 0x00
+    packet[0] = header & 0xFF
     packet[1] = unit_id & 0xFF
     packet[15] = calculate_checksum(packet)
     return bytes(packet)
